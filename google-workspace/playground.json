@@ -1,0 +1,499 @@
+{
+  "schemaVersion": 1,
+  "name": "@local/google-workspace",
+  "displayName": "Google Workspace",
+  "description": "Configure which Google Calendar, Gmail, and Google Drive tools the agent can use.",
+  "icon": "icon.svg",
+  "entrypoints": {
+    "main": {
+      "runtime": "page",
+      "module": "main.tsx"
+    }
+  },
+  "capabilities": {
+    "fetch": [
+      ".googleapis.com"
+    ],
+    "integrations": [
+      {
+        "id": "google",
+        "account": "per-member",
+        "scopes": [
+          "https://www.googleapis.com/auth/calendar.readonly",
+          "https://www.googleapis.com/auth/calendar.events",
+          "https://www.googleapis.com/auth/gmail.readonly",
+          "https://www.googleapis.com/auth/gmail.compose",
+          "https://www.googleapis.com/auth/drive.readonly"
+        ],
+        "reason": "Reads your calendar, creates calendar events, reads your emails, composes email drafts, and reads files from your Google Drive."
+      }
+    ]
+  },
+  "tools": [
+    {
+      "name": "list_calendar_events",
+      "description": "List upcoming events from a Google Calendar. Defaults to the primary calendar, max 10 results, ordered by start time. Pass timeMin/timeMax (ISO 8601) to scope to a date range. You can target a specific connected account with `connection`.",
+      "runtime": [
+        "worker"
+      ],
+      "entrypoint": "tools.ts",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "connection": {
+            "type": "string",
+            "description": "Connection id of the Google account to use. Omit to use the default / first enabled account."
+          },
+          "calendarId": {
+            "type": "string",
+            "description": "Calendar ID. Defaults to 'primary'."
+          },
+          "maxResults": {
+            "type": "integer",
+            "description": "Maximum number of events to return. Defaults to 10."
+          },
+          "timeMin": {
+            "type": "string",
+            "description": "ISO 8601 datetime — lower bound for event start time (inclusive)."
+          },
+          "timeMax": {
+            "type": "string",
+            "description": "ISO 8601 datetime — upper bound for event start time (exclusive)."
+          },
+          "q": {
+            "type": "string",
+            "description": "Free-text search query to filter events by title, description, location, or attendees."
+          }
+        }
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "events": {
+            "type": "array",
+            "description": "Array of Google Calendar event objects."
+          },
+          "connection": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    {
+      "name": "get_calendar_event",
+      "description": "Get a single Google Calendar event by its ID. You can target a specific connected account with `connection`.",
+      "runtime": [
+        "worker"
+      ],
+      "entrypoint": "tools.ts",
+      "inputSchema": {
+        "type": "object",
+        "required": [
+          "eventId"
+        ],
+        "properties": {
+          "connection": {
+            "type": "string",
+            "description": "Connection id of the Google account to use. Omit to use the default / first enabled account."
+          },
+          "calendarId": {
+            "type": "string",
+            "description": "Calendar ID. Defaults to 'primary'."
+          },
+          "eventId": {
+            "type": "string",
+            "description": "The event ID to retrieve."
+          }
+        }
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "event": {
+            "type": "object",
+            "description": "The Google Calendar event object."
+          },
+          "connection": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    {
+      "name": "create_calendar_event",
+      "description": "Create a new event on a Google Calendar. Requires summary, start, and end. You can target a specific connected account with `connection`.",
+      "runtime": [
+        "worker"
+      ],
+      "entrypoint": "tools.ts",
+      "inputSchema": {
+        "type": "object",
+        "required": [
+          "summary",
+          "start",
+          "end"
+        ],
+        "properties": {
+          "connection": {
+            "type": "string",
+            "description": "Connection id of the Google account to use. Omit to use the default / first enabled account."
+          },
+          "calendarId": {
+            "type": "string",
+            "description": "Calendar ID. Defaults to 'primary'."
+          },
+          "summary": {
+            "type": "string",
+            "description": "Event title."
+          },
+          "description": {
+            "type": "string",
+            "description": "Event description / notes."
+          },
+          "location": {
+            "type": "string",
+            "description": "Event location."
+          },
+          "start": {
+            "type": "object",
+            "description": "Start time. Use { dateTime, timeZone } for timed events or { date } for all-day events.",
+            "properties": {
+              "dateTime": {
+                "type": "string",
+                "description": "ISO 8601 datetime, e.g. '2026-07-09T14:00:00'."
+              },
+              "date": {
+                "type": "string",
+                "description": "ISO 8601 date for all-day events, e.g. '2026-07-09'."
+              },
+              "timeZone": {
+                "type": "string",
+                "description": "IANA timezone, e.g. 'America/Los_Angeles'."
+              }
+            }
+          },
+          "end": {
+            "type": "object",
+            "description": "End time. Use { dateTime, timeZone } for timed events or { date } for all-day events.",
+            "properties": {
+              "dateTime": {
+                "type": "string",
+                "description": "ISO 8601 datetime, e.g. '2026-07-09T15:00:00'."
+              },
+              "date": {
+                "type": "string",
+                "description": "ISO 8601 date for all-day events, e.g. '2026-07-09'."
+              },
+              "timeZone": {
+                "type": "string",
+                "description": "IANA timezone, e.g. 'America/Los_Angeles'."
+              }
+            }
+          },
+          "attendees": {
+            "type": "array",
+            "description": "List of attendees.",
+            "items": {
+              "type": "object",
+              "properties": {
+                "email": {
+                  "type": "string",
+                  "description": "Attendee email address."
+                }
+              }
+            }
+          }
+        }
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "event": {
+            "type": "object",
+            "description": "The created Google Calendar event object."
+          },
+          "connection": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    {
+      "name": "list_emails",
+      "description": "List Gmail messages with optional search query and label filters. You can target a specific connected account with `connection`.",
+      "runtime": [
+        "worker"
+      ],
+      "entrypoint": "tools.ts",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "connection": {
+            "type": "string",
+            "description": "Connection id of the Google account to use. Omit to use the default / first enabled account."
+          },
+          "maxResults": {
+            "type": "integer",
+            "description": "Maximum number of messages to return. Defaults to 10."
+          },
+          "q": {
+            "type": "string",
+            "description": "Gmail search query (e.g. 'from:alice@example.com subject:invoice newer_than:2d')."
+          },
+          "labelIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Filter by Gmail label IDs (e.g. ['INBOX', 'UNREAD'])."
+          }
+        }
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "messages": {
+            "type": "array",
+            "description": "Array of message metadata objects."
+          },
+          "resultSizeEstimate": {
+            "type": "integer"
+          },
+          "connection": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    {
+      "name": "get_email",
+      "description": "Retrieve the full content of a Gmail message by ID. You can target a specific connected account with `connection`.",
+      "runtime": [
+        "worker"
+      ],
+      "entrypoint": "tools.ts",
+      "inputSchema": {
+        "type": "object",
+        "required": [
+          "id"
+        ],
+        "properties": {
+          "connection": {
+            "type": "string",
+            "description": "Connection id of the Google account to use. Omit to use the default / first enabled account."
+          },
+          "id": {
+            "type": "string",
+            "description": "The Gmail message ID."
+          },
+          "format": {
+            "type": "string",
+            "enum": [
+              "minimal",
+              "full",
+              "raw",
+              "metadata"
+            ],
+            "description": "Response format. Defaults to 'full'."
+          }
+        }
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "message": {
+            "type": "object",
+            "description": "The full Gmail message object including headers, body text, and HTML."
+          },
+          "connection": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    {
+      "name": "compose_draft",
+      "description": "Compose a Gmail draft without sending it. You can target a specific connected account with `connection`.",
+      "runtime": [
+        "worker"
+      ],
+      "entrypoint": "tools.ts",
+      "inputSchema": {
+        "type": "object",
+        "required": [
+          "to",
+          "subject",
+          "body"
+        ],
+        "properties": {
+          "connection": {
+            "type": "string",
+            "description": "Connection id of the Google account to use. Omit to use the default / first enabled account."
+          },
+          "to": {
+            "type": "string",
+            "description": "Recipient email address."
+          },
+          "subject": {
+            "type": "string",
+            "description": "Email subject line."
+          },
+          "body": {
+            "type": "string",
+            "description": "Email body (plain text)."
+          },
+          "cc": {
+            "type": "string",
+            "description": "CC recipient email address(es), comma-separated."
+          },
+          "bcc": {
+            "type": "string",
+            "description": "BCC recipient email address(es), comma-separated."
+          }
+        }
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "draft": {
+            "type": "object",
+            "description": "The created Gmail draft object."
+          },
+          "connection": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    {
+      "name": "list_drive_files",
+      "description": "List or search files in Google Drive. You can target a specific connected account with `connection`.",
+      "runtime": [
+        "worker"
+      ],
+      "entrypoint": "tools.ts",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "connection": {
+            "type": "string",
+            "description": "Connection id of the Google account to use. Omit to use the default / first enabled account."
+          },
+          "pageSize": {
+            "type": "integer",
+            "description": "Maximum number of files to return (max 100). Defaults to 10."
+          },
+          "q": {
+            "type": "string",
+            "description": "Google Drive query string, e.g. \"name contains 'budget'\"."
+          },
+          "orderBy": {
+            "type": "string",
+            "description": "Sort order, e.g. 'modifiedTime desc'."
+          },
+          "pageToken": {
+            "type": "string",
+            "description": "Page token from a previous list_drive_files result for pagination."
+          }
+        }
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "files": {
+            "type": "array",
+            "description": "Array of Google Drive file metadata objects."
+          },
+          "nextPageToken": {
+            "type": "string"
+          },
+          "connection": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    {
+      "name": "stat_drive_file",
+      "description": "Get metadata for a single Google Drive file by its ID. You can target a specific connected account with `connection`.",
+      "runtime": [
+        "worker"
+      ],
+      "entrypoint": "tools.ts",
+      "inputSchema": {
+        "type": "object",
+        "required": [
+          "fileId"
+        ],
+        "properties": {
+          "connection": {
+            "type": "string",
+            "description": "Connection id of the Google account to use. Omit to use the default / first enabled account."
+          },
+          "fileId": {
+            "type": "string",
+            "description": "The Google Drive file ID."
+          }
+        }
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "file": {
+            "type": "object",
+            "description": "The Google Drive file metadata object."
+          },
+          "connection": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    {
+      "name": "read_drive_file",
+      "description": "Read the content of a Google Drive file. You can target a specific connected account with `connection`.",
+      "runtime": [
+        "worker"
+      ],
+      "entrypoint": "tools.ts",
+      "inputSchema": {
+        "type": "object",
+        "required": [
+          "fileId"
+        ],
+        "properties": {
+          "connection": {
+            "type": "string",
+            "description": "Connection id of the Google account to use. Omit to use the default / first enabled account."
+          },
+          "fileId": {
+            "type": "string",
+            "description": "The Google Drive file ID."
+          },
+          "mimeType": {
+            "type": "string",
+            "description": "Override the export format for Google Workspace files."
+          }
+        }
+      },
+      "outputSchema": {
+        "type": "object",
+        "description": "Returns a content shape with image-data, file-data, or text parts depending on the file type.",
+        "properties": {
+          "type": {
+            "type": "string"
+          },
+          "value": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          }
+        }
+      }
+    }
+  ],
+  "skills": [
+    "SKILL.md"
+  ]
+}
