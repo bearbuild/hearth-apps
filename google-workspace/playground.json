@@ -18,13 +18,7 @@
       {
         "id": "google",
         "account": "per-member",
-        "scopes": [
-          "https://www.googleapis.com/auth/calendar.readonly",
-          "https://www.googleapis.com/auth/calendar.events",
-          "https://www.googleapis.com/auth/gmail.readonly",
-          "https://www.googleapis.com/auth/gmail.compose",
-          "https://www.googleapis.com/auth/drive.readonly"
-        ],
+        "scopes": [],
         "reason": "Reads your calendar, creates calendar events, reads your emails, composes email drafts, and reads files from your Google Drive."
       }
     ]

@@ -18,6 +18,12 @@ declare const capabilities: {
   };
 };
 
+declare const playground: {
+  open: (path: string) => Promise<{ kind: string; read: () => Promise<string>; write: (content: string) => Promise<void> }>;
+};
+
+const MANIFEST_PATH = "Apps/google-workspace/playground.json";
+
 const GROUPS = [
   {
     id: "calendar-read",
@@ -64,6 +70,19 @@ function groupsFromScopes(scopes: string[]) {
   return GROUPS.filter((g) => set.has(g.scope));
 }
 
+// Write the selected scopes into the manifest so capabilities.integrations.connect
+// can request them. The manifest starts with scopes: [] to avoid an automatic
+// grant banner on page load; scopes are added only when the user explicitly
+// chooses them via the Connect form.
+async function updateManifestScopes(scopes: string[]) {
+  const f = await playground.open(MANIFEST_PATH);
+  const data = JSON.parse(await f.read());
+  if (data.capabilities?.integrations?.[0]) {
+    data.capabilities.integrations[0].scopes = scopes;
+  }
+  await f.write(JSON.stringify(data, null, 2));
+}
+
 function App() {
   const [accounts, setAccounts] = useState<any[]>([]);
   const [status, setStatus] = useState<string>("");
@@ -106,6 +125,9 @@ function App() {
     setLoading(true);
     setStatus("Opening Google consent…");
     try {
+      // Write the selected scopes into the manifest first, so connect() can
+      // request them (connect scopes can never exceed the manifest declaration).
+      await updateManifestScopes(scopes);
       const linked = await capabilities.integrations.connect("google", { scopes });
       if (!linked) {
         setStatus("Connection cancelled.");
