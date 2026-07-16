@@ -18,12 +18,6 @@ declare const capabilities: {
   };
 };
 
-declare const playground: {
-  open: (path: string) => Promise<{ kind: string; read: () => Promise<string>; write: (content: string) => Promise<void> }>;
-};
-
-const MANIFEST_PATH = "Apps/google-workspace/playground.json";
-
 const GROUPS = [
   {
     id: "calendar-read",
@@ -70,20 +64,6 @@ function groupsFromScopes(scopes: string[]) {
   return GROUPS.filter((g) => set.has(g.scope));
 }
 
-// Write the given scopes into the manifest so capabilities.integrations.connect
-// can request them. The manifest starts with scopes: [] to avoid an automatic
-// grant banner on page load. The caller is responsible for passing the union of
-// all scopes needed across every connected account (existing + new), so the
-// manifest never drops a scope another account depends on.
-async function updateManifestScopes(scopes: string[]) {
-  const f = await playground.open(MANIFEST_PATH);
-  const data = JSON.parse(await f.read());
-  if (data.capabilities?.integrations?.[0]) {
-    data.capabilities.integrations[0].scopes = scopes;
-  }
-  await f.write(JSON.stringify(data, null, 2));
-}
-
 function App() {
   const [accounts, setAccounts] = useState<any[]>([]);
   const [status, setStatus] = useState<string>("");
@@ -126,15 +106,6 @@ function App() {
     setLoading(true);
     setStatus("Opening Google consent…");
     try {
-      // Union the new scopes with all scopes already granted across existing
-      // accounts, so the manifest never drops a scope another account needs.
-      const existing = await loadAccounts();
-      const allScopes = new Set<string>(scopes);
-      for (const a of existing) {
-        for (const s of a.scopes) allScopes.add(s);
-      }
-      const manifestScopes = GROUPS.filter((g) => allScopes.has(g.scope)).map((g) => g.scope);
-      await updateManifestScopes(manifestScopes);
       const linked = await capabilities.integrations.connect("google", { scopes });
       if (!linked) {
         setStatus("Connection cancelled.");
@@ -183,7 +154,7 @@ function App() {
                     ))
                   ) : (
                     <span className="text-sm text-muted-foreground">No capabilities enabled.</span>
-                  )}
+                  )
                 </div>
               </div>
             );
@@ -248,7 +219,7 @@ function App() {
         </div>
       )}
 
-      {status && <p className="mt-4 text-sm">{status}</p>}
+      {status && <p className="mt-4 text-sm">{status}</p>
     </div>
   );
 }
