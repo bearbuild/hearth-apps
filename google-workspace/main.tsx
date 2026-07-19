@@ -36,6 +36,8 @@ const GROUPS = [
     label: "Read emails",
     description: "List and read Gmail messages.",
     scope: "https://www.googleapis.com/auth/gmail.readonly",
+    warning:
+      "Emails can contain hidden instructions from untrusted senders. When the agent can read your inbox, a crafted message could attempt prompt injection — tricking the agent into following attacker instructions — or expose sensitive details like password resets and verification codes. Consider whether you need this before enabling.",
   },
   {
     id: "gmail-drafts",
@@ -50,6 +52,12 @@ const GROUPS = [
     scope: "https://www.googleapis.com/auth/drive.readonly",
   },
 ];
+
+// Groups enabled by default when opening the connect form.
+// Email reading (gmail-read) is OFF by default because inbox content
+// comes from untrusted senders and can carry prompt-injection or
+// credential-leakage attacks. Users must opt in explicitly.
+const DEFAULT_GROUP_IDS = GROUPS.filter((g) => g.id !== "gmail-read").map((g) => g.id);
 
 function formatConnectedBy(
   connectedBy: string | { name?: string; email?: string }
@@ -70,7 +78,7 @@ function App() {
   const [loading, setLoading] = useState(false);
   const [showAddForm, setShowAddForm] = useState(false);
   const [selectedGroups, setSelectedGroups] = useState<Set<string>>(
-    () => new Set(GROUPS.map((g) => g.id))
+    () => new Set(DEFAULT_GROUP_IDS)
   );
 
   async function loadAccounts() {
@@ -113,7 +121,7 @@ function App() {
         await loadAccounts();
         setStatus(`Connected ${linked.label}.`);
         setShowAddForm(false);
-        setSelectedGroups(new Set(GROUPS.map((g) => g.id)));
+        setSelectedGroups(new Set(DEFAULT_GROUP_IDS));
       }
     } catch (err: any) {
       setStatus(`Error: ${err instanceof Error ? err.message : String(err)}`);
@@ -124,6 +132,18 @@ function App() {
 
   return (
     <div className="p-6 max-w-2xl mx-auto">
+      <style>{`
+        .gw-info { position: relative; display: inline-flex; align-items: center; cursor: help; opacity: .55; font-size: .85em; }
+        .gw-info:hover { opacity: 1; }
+        .gw-info-tip {
+          display: none; position: absolute; bottom: calc(100% + 8px); left: 50%;
+          transform: translateX(-50%); width: 300px; padding: 10px 12px;
+          border-radius: 6px; background: #1c1c28; color: #e8e8ef;
+          font-size: 12px; line-height: 1.5; z-index: 50; font-weight: normal;
+          box-shadow: 0 4px 14px rgba(0,0,0,.35); text-align: left; white-space: normal;
+        }
+        .gw-info:hover .gw-info-tip { display: block; }
+      `}</style>
       <h1 className="text-xl font-semibold mb-2">Google Workspace</h1>
       <p className="text-muted-foreground mb-6">
         Connect Google accounts and choose which capabilities the agent can use for each. To change an account's capabilities, disconnect it from Google and reconnect with the desired scopes.
@@ -154,7 +174,7 @@ function App() {
                     ))
                   ) : (
                     <span className="text-sm text-muted-foreground">No capabilities enabled.</span>
-                  )
+                  )}
                 </div>
               </div>
             );
@@ -190,7 +210,15 @@ function App() {
                   className="mt-1"
                 />
                 <div>
-                  <div className="font-medium text-sm">{g.label}</div>
+                  <div className="font-medium text-sm flex items-center gap-1.5">
+                    {g.label}
+                    {g.warning && (
+                      <span className="gw-info" role="img" aria-label="Security note">
+                        <span aria-hidden="true">ⓘ</span>
+                        <span className="gw-info-tip">{g.warning}</span>
+                      </span>
+                    )}
+                  </div>
                   <div className="text-xs text-muted-foreground">{g.description}</div>
                 </div>
               </label>
@@ -207,7 +235,7 @@ function App() {
             <button
               onClick={() => {
                 setShowAddForm(false);
-                setSelectedGroups(new Set(GROUPS.map((g) => g.id)));
+                setSelectedGroups(new Set(DEFAULT_GROUP_IDS));
                 setStatus("");
               }}
               disabled={loading}
@@ -219,7 +247,7 @@ function App() {
         </div>
       )}
 
-      {status && <p className="mt-4 text-sm">{status}</p>
+      {status && <p className="mt-4 text-sm">{status}</p>}
     </div>
   );
 }

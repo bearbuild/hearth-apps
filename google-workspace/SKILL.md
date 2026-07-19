@@ -14,16 +14,25 @@ Connects Google accounts and exposes Calendar, Gmail, and Google Drive tools to 
 1. Open the app's page.
 2. Click **Connect a Google account** (or **Add another Google account** if one is already linked).
 3. Check the capabilities you want the agent to use for this account:
-   - **Read calendar events** — `calendar.readonly`
-   - **Create calendar events** — `calendar.events`
-   - **Read emails** — `gmail.readonly`
-   - **Compose email drafts** — `gmail.compose`
-   - **Read Google Drive files** — `drive.readonly`
+   - **Read calendar events** — `calendar.readonly` *(on by default)*
+   - **Create calendar events** — `calendar.events` *(on by default)*
+   - **Read emails** — `gmail.readonly` *(**off by default** — see security note below)*
+   - **Compose email drafts** — `gmail.compose` *(on by default)*
+   - **Read Google Drive files** — `drive.readonly` *(on by default)*
 4. Click **Connect**. The app calls `capabilities.integrations.connect("google", { scopes })` with only the selected scopes, opening Google's OAuth consent popup. The app stays open; when the popup resolves, the new account appears in the connected-accounts list with its granted capabilities shown as badges.
 
 To change an existing account's capabilities, disconnect it from Google and reconnect with the desired scopes — the checkboxes only appear during the connect flow, not for already-linked accounts.
 
 > Note: Gmail's `compose` scope is required to create drafts, and it also technically allows sending messages. This app only creates drafts via `compose_draft`; it does not send email.
+
+### Why email reading is off by default
+
+The "Read emails" capability is unchecked by default, and the connect form shows a security info tooltip (ⓘ) explaining the risk. Email content comes from untrusted senders, so granting the agent inbox read access introduces two attack vectors:
+
+1. **Prompt injection** — A crafted email can contain hidden instructions that attempt to make the agent follow attacker commands instead of (or in addition to) the member's real requests.
+2. **Credential / sensitive-data leakage** — Inbox messages routinely contain password resets, verification codes, and other secrets. An agent with read access may surface or act on these in unintended ways.
+
+Members who need email reading should opt in explicitly by checking the box during the connect flow, after reviewing the tooltip. The capability can always be removed by disconnecting and reconnecting without it.
 
 ## Per-member permissions
 
@@ -38,7 +47,7 @@ This app uses `account: "per-member"` for the Google integration, which means:
 
 1. **Identify the execution context.** For an interactive chat, omit `connection` unless the user explicitly identifies a different connected account; per-member routing then selects the current member's account.
 2. **For an email, scheduled, or background turn, select explicitly.** Use `capabilities.integrations.list("google")` to enumerate connected accounts and their granted `scopes`. Choose a connection whose `scopes` include the scope required by the requested tool:
-   - `calendar.readonly` → `list_calendar_events`, `get_calendar_event`
+   - `calendar.readonly` → `list_calendars`, `list_calendar_events`, `get_calendar_event`
    - `calendar.events` → `create_calendar_event`
    - `gmail.readonly` → `list_emails`, `get_email`
    - `gmail.compose` → `compose_draft`
@@ -51,6 +60,7 @@ This app uses `account: "per-member"` for the Google integration, which means:
 
 All tools are always declared in the manifest, but each one only works against accounts that have the corresponding scope granted:
 
+- `list_calendars` — list all calendars available to a connected account, including each calendar’s ID, display name, access role, and primary status. Use this to discover shared-calendar IDs such as `Family`.
 - `list_calendar_events` — list upcoming events from a calendar (defaults to `primary`, max 10).
 - `get_calendar_event` — get a single event by calendar ID and event ID.
 - `create_calendar_event` — create an event. Requires `summary`, `start`, and `end`.
