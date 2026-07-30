@@ -6,6 +6,7 @@
   "icon": "presentation",
   "capabilities": {
     "fetch": ["https://esm.sh"],
+    "permissions": ["fullscreen"],
     "filesystem": {
       "grants": [
         {
