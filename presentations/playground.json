@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "name": "@local/presentations",
+  "displayName": "Presentations",
+  "description": "Create and present slide decks from markdown files using reveal.js.",
+  "icon": "presentation",
+  "capabilities": {
+    "fetch": ["https://esm.sh"],
+    "permissions": ["fullscreen"],
+    "filesystem": {
+      "grants": [
+        {
+          "path": "Presentations",
+          "access": "readwrite",
+          "reason": "Read and write presentation files in your Presentations folder."
+        }
+      ]
+    },
+    "sandbox": ["allow-presentation"]
+  },
+  "entrypoints": {
+    "main": { "runtime": "page", "module": "main.tsx" }
+  },
+  "skills": ["SKILL.md"]
+}

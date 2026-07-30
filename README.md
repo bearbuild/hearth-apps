@@ -18,6 +18,12 @@ Connect Google accounts and expose Calendar, Gmail, and Google Drive tools to th
 
 **Tools:** `list_calendar_events`, `get_calendar_event`, `create_calendar_event`, `list_emails`, `get_email`, `compose_draft`, `list_drive_files`, `stat_drive_file`, `read_drive_file`
 
+### Presentations
+
+Create and present Markdown slide decks with reveal.js. Supports frontmatter, horizontal and vertical slides, Mermaid diagrams, syntax-highlighted code, speaker notes, live updates, and a warm light/dark theme. The app includes a neutral sample deck that is copied into the workspace's `Presentations` folder on first launch.
+
+**Capabilities:** Read/write access to `Presentations`; network access to `esm.sh`; presentation display support
+
 ## License
 
 MIT — see [LICENSE](LICENSE). Fork freely.
