@@ -141,9 +141,9 @@ function toggle(data: VisitData, placeId: string, kind: PlaceKind, personId: str
 }
 
 export async function tag_visit(input: TagVisitInput, ctx) {
-  async function readJson(path: string): Promise<any | undefined> {
+  async function readJson(path: string, create = false): Promise<any | undefined> {
     try {
-      const file = await ctx.playground.open(path);
+      const file = await ctx.playground.open(path, { create });
       return JSON.parse(await file.read());
     } catch {
       return undefined;
@@ -151,22 +151,14 @@ export async function tag_visit(input: TagVisitInput, ctx) {
   }
 
   async function writeJson(path: string, value: unknown): Promise<void> {
-    try {
-      const file = await ctx.playground.open(path);
-      await file.write(JSON.stringify(value, null, 2));
-      return;
-    } catch (firstError) {
-      if (!ctx.playground.createFile) throw firstError;
-      await ctx.playground.createFile(path);
-      const file = await ctx.playground.open(path);
-      await file.write(JSON.stringify(value, null, 2));
-    }
+    const file = await ctx.playground.open(path, { create: true });
+    await file.write(JSON.stringify(value, null, 2));
   }
 
   async function loadData(): Promise<VisitData> {
     const [configured, stored, legacy] = await Promise.all([
-      readJson(CONFIG_PATH),
-      readJson(DATA_PATH),
+      readJson(CONFIG_PATH, true),
+      readJson(DATA_PATH, true),
       readJson(LEGACY_DATA_PATH),
     ]);
     const people = normalizePeople(configured ?? { people: legacy?.people ?? [] });

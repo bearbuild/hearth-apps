@@ -22,12 +22,11 @@ export const EMPTY_DATA: VisitData = {
 };
 
 declare const playground: {
-  open: (path: string) => Promise<{
+  open: (path: string, options?: { create?: boolean }) => Promise<{
     kind?: string;
     read: () => Promise<string>;
     write: (content: string) => Promise<void>;
   }>;
-  createFile?: (path: string) => Promise<void>;
 };
 
 function personFromUnknown(value: unknown): Person | null {
@@ -97,9 +96,9 @@ function normalizeStoredData(value: unknown): Omit<VisitData, "people"> {
   };
 }
 
-async function readJson(path: string): Promise<unknown | undefined> {
+async function readJson(path: string, create = false): Promise<unknown | undefined> {
   try {
-    const file = await playground.open(path);
+    const file = await playground.open(path, { create });
     return JSON.parse(await file.read());
   } catch {
     return undefined;
@@ -107,20 +106,12 @@ async function readJson(path: string): Promise<unknown | undefined> {
 }
 
 async function writeJson(path: string, value: unknown): Promise<void> {
-  try {
-    const file = await playground.open(path);
-    await file.write(JSON.stringify(value, null, 2));
-    return;
-  } catch (firstError) {
-    if (!playground.createFile) throw firstError;
-    await playground.createFile(path);
-    const file = await playground.open(path);
-    await file.write(JSON.stringify(value, null, 2));
-  }
+  const file = await playground.open(path, { create: true });
+  await file.write(JSON.stringify(value, null, 2));
 }
 
 export async function loadConfig(): Promise<FamilyConfig> {
-  const configured = await readJson(CONFIG_PATH);
+  const configured = await readJson(CONFIG_PATH, true);
   if (configured !== undefined) return normalizeConfig(configured);
 
   // Upgrade path for the old bundled data.json format. New installs never use
@@ -141,7 +132,7 @@ export async function saveConfig(config: FamilyConfig): Promise<void> {
 export async function loadData(): Promise<VisitData> {
   const [config, stored, legacy] = await Promise.all([
     loadConfig(),
-    readJson(DATA_PATH),
+    readJson(DATA_PATH, true),
     readJson(LEGACY_DATA_PATH),
   ]);
 
