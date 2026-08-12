@@ -28,7 +28,7 @@ shows a setup notice when `config.json` has no family members.
       "color": "#3b82f6",
       "short": "A",
       "emoji": "👤",
-      "email": "alex@example.com"
+      "email": "alex@example.invalid"
     }
   ]
 }
@@ -75,7 +75,7 @@ Parameters:
 - `place` — Country or US state name, e.g. `"Italy"`, `"Japan"`, or `"California"`.
 - `personId` — One of the IDs currently listed in `config.json`.
 - `visited` — If true, add the visited tag; if false, remove it.
-- `want` — If true, add the wants-to-visit tag; if false, remove it.
+- `want` — If true, tag as 'want to visit'; if false, remove it.
 
 Examples:
 

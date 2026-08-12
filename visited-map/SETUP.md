@@ -19,7 +19,7 @@ Create that folder and add a `config.json` file:
       "color": "#3b82f6",
       "short": "A",
       "emoji": "👤",
-      "email": "alex@example.com"
+      "email": "alex@example.invalid"
     },
     {
       "id": "sam",
