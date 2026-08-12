@@ -1,0 +1,75 @@
+{
+  "schemaVersion": 1,
+  "name": "@local/visited-map",
+  "displayName": "Travel Map",
+  "description": "A demo-ready shared world map of countries and US states, with family membership and travel data stored in the app data folder.",
+  "icon": "globe",
+  "capabilities": {
+    "fetch": [
+      "https://cdn.jsdelivr.net",
+      "https://unpkg.com",
+      "https://basemaps.cartocdn.com",
+      ".basemaps.cartocdn.com",
+      "https://esm.sh"
+    ],
+    "integrations": [
+      {
+        "id": "google",
+        "scopes": [
+          "https://www.googleapis.com/auth/userinfo.email",
+          "https://www.googleapis.com/auth/userinfo.profile"
+        ],
+        "reason": "Identifies the current family member so the map can default to their view."
+      }
+    ]
+  },
+  "entrypoints": {
+    "main": {
+      "runtime": "page",
+      "module": "main.tsx"
+    }
+  },
+  "tools": [
+    {
+      "name": "tag_visit",
+      "description": "Tag or untag a family member for a country or US state on the visited map. Accepts common country/state names; the tool looks up the internal place ID automatically.",
+      "runtime": "worker",
+      "entrypoint": "worker.ts",
+      "inputSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["place", "personId"],
+        "properties": {
+          "place": {
+            "type": "string",
+            "description": "Country or US state name, e.g. 'Italy', 'Japan', 'California'."
+          },
+          "personId": {
+            "type": "string",
+            "description": "A stable person id from the family membership config.json file."
+          },
+          "visited": {
+            "type": "boolean",
+            "description": "If true, add the visited tag; if false, remove it. Mutually exclusive with 'want'."
+          },
+          "want": {
+            "type": "boolean",
+            "description": "If true, tag as 'want to visit'; if false, remove it. Mutually exclusive with 'visited'."
+          }
+        }
+      },
+      "outputSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["place", "personId", "visited", "want"],
+        "properties": {
+          "place": { "type": "string" },
+          "personId": { "type": "string" },
+          "visited": { "type": "boolean" },
+          "want": { "type": "boolean" }
+        }
+      }
+    }
+  ],
+  "skills": ["SKILL.md"]
+}
