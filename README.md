@@ -24,6 +24,14 @@ Create and present Markdown slide decks with reveal.js. Supports frontmatter, ho
 
 **Capabilities:** Read/write access to `Presentations`; network access to `esm.sh`; presentation display support
 
+### Travel Map
+
+A shared, demo-ready world map for tracking which countries and US states each configured household member has visited or wants to visit. Travel data and optional email mappings stay in the installing workspace's private app-data directory; the published app contains only generic code and sample setup instructions.
+
+**Capabilities:** Public map and atlas data via CDN; optional Google identity lookup to default to a configured member's view
+
+**Tools:** `tag_visit` — mark or clear a configured member's visited or wants-to-visit status for a country or US state
+
 ## License
 
 MIT — see [LICENSE](LICENSE). Fork freely.
