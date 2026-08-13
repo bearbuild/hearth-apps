@@ -32,6 +32,18 @@ A shared, demo-ready world map for tracking which countries and US states each c
 
 **Tools:** `tag_visit` — mark or clear a configured member's visited or wants-to-visit status for a country or US state
 
+### Home Assistant Media Control
+
+Control media players connected to a Home Assistant instance from a Hearth page or through agent tools. The app discovers `media_player.*` entities at runtime, displays current playback and volume state, and supports playback, power, mute, volume, and source-selection commands.
+
+The app is portable and contains no instance-specific URL, entity IDs, device names, or access tokens. Each Hearth workspace stores its non-secret Home Assistant base URL in its private per-app data file at `.playground/local/home-assistant/config.json`. Home Assistant credentials stay in a Hearth HTTP proxy named `home-assistant`.
+
+**Capabilities:** Home Assistant HTTP proxy integration
+
+**Tools:** `get_media_states`, `control_media`, `fetch_ha_endpoint`
+
+**Setup:** Add an HTTPS HTTP proxy named `home-assistant`, store a Home Assistant Bearer token in that proxy, then tell the Hearth agent the non-secret base URL so it can write the workspace-local config file. See [`home-assistant/SETUP.md`](home-assistant/SETUP.md).
+
 ## License
 
 MIT — see [LICENSE](LICENSE). Fork freely.

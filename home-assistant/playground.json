@@ -1,0 +1,84 @@
+{
+  "schemaVersion": 1,
+  "name": "@local/home-assistant",
+  "displayName": "Smart Home",
+  "description": "Control media players and streaming sources through Home Assistant from Hearth.",
+  "icon": "home",
+  "capabilities": {
+    "integrations": ["home-assistant"]
+  },
+  "entrypoints": {
+    "main": {
+      "runtime": "page",
+      "module": "main.tsx",
+      "theme": "system"
+    }
+  },
+  "tools": [
+    {
+      "name": "get_media_states",
+      "description": "Get the current state, playback, volume, and available sources of media players connected to Home Assistant.",
+      "runtime": ["worker"],
+      "entrypoint": "tools.ts",
+      "inputSchema": {
+        "type": "object",
+        "properties": {}
+      }
+    },
+    {
+      "name": "control_media",
+      "description": "Send playback, volume, power, mute, or source-selection commands to a media player in Home Assistant.",
+      "runtime": ["worker"],
+      "entrypoint": "tools.ts",
+      "inputSchema": {
+        "type": "object",
+        "required": ["entity_id", "command"],
+        "properties": {
+          "entity_id": {
+            "type": "string",
+            "description": "The Home Assistant entity ID, such as 'media_player.living_room'"
+          },
+          "command": {
+            "type": "string",
+            "enum": ["play", "pause", "play_pause", "turn_on", "turn_off", "volume_up", "volume_down", "set_volume", "mute", "unmute", "select_source"],
+            "description": "The command to execute on the media player."
+          },
+          "volume_level": {
+            "type": "number",
+            "description": "Value between 0.0 and 1.0 (only used with command 'set_volume')"
+          },
+          "source": {
+            "type": "string",
+            "description": "The source name to select (only used with command 'select_source')"
+          }
+        }
+      }
+    },
+    {
+      "name": "fetch_ha_endpoint",
+      "description": "Fetch a raw Home Assistant API endpoint to inspect or troubleshoot the integration.",
+      "runtime": ["worker"],
+      "entrypoint": "tools.ts",
+      "inputSchema": {
+        "type": "object",
+        "required": ["endpoint"],
+        "properties": {
+          "endpoint": {
+            "type": "string",
+            "description": "The API path to fetch, e.g. '/api/error_log' or '/api/config'"
+          },
+          "method": {
+            "type": "string",
+            "enum": ["GET", "POST"],
+            "default": "GET"
+          },
+          "body": {
+            "type": "object",
+            "description": "Optional JSON body for POST requests"
+          }
+        }
+      }
+    }
+  ],
+  "skills": ["SKILL.md"]
+}
