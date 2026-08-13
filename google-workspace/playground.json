@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "name": "@local/google-workspace",
   "displayName": "Google Workspace",
-  "description": "Configure which Google Calendar, Gmail, and Google Drive tools the agent can use.",
+  "description": "Connect Google Calendar, Gmail, and Drive (each connects separately) and expose their tools to the agent.",
   "icon": "icon.svg",
   "entrypoints": {
     "main": {
@@ -16,7 +16,7 @@
     ],
     "integrations": [
       {
-        "id": "google",
+        "id": "google-composio",
         "account": "per-member",
         "scopes": [
           "https://www.googleapis.com/auth/calendar.readonly",
@@ -42,7 +42,7 @@
         "properties": {
           "connection": {
             "type": "string",
-            "description": "Connection id of the Google account to use. Omit to use the default / first enabled account."
+            "description": "Connection id of a specific Google account. LEAVE UNSET in normal use: the server resolves the account per call, including which Google service (Calendar / Gmail / Drive) the call needs, and a pinned id overrides that. Set it only after a 409 account-selection error, or in a background/scheduled run with no current member."
           },
           "calendarId": {
             "type": "string",
@@ -74,7 +74,8 @@
             "description": "Array of Google Calendar event objects."
           },
           "connection": {
-            "type": "string"
+            "type": "string",
+            "description": "Echoes the pinned connection when one was passed; absent when the server selected the account."
           }
         }
       }
@@ -94,7 +95,7 @@
         "properties": {
           "connection": {
             "type": "string",
-            "description": "Connection id of the Google account to use. Omit to use the default / first enabled account."
+            "description": "Connection id of a specific Google account. LEAVE UNSET in normal use: the server resolves the account per call, including which Google service (Calendar / Gmail / Drive) the call needs, and a pinned id overrides that. Set it only after a 409 account-selection error, or in a background/scheduled run with no current member."
           },
           "calendarId": {
             "type": "string",
@@ -114,7 +115,8 @@
             "description": "The Google Calendar event object."
           },
           "connection": {
-            "type": "string"
+            "type": "string",
+            "description": "Echoes the pinned connection when one was passed; absent when the server selected the account."
           }
         }
       }
@@ -136,7 +138,7 @@
         "properties": {
           "connection": {
             "type": "string",
-            "description": "Connection id of the Google account to use. Omit to use the default / first enabled account."
+            "description": "Connection id of a specific Google account. LEAVE UNSET in normal use: the server resolves the account per call, including which Google service (Calendar / Gmail / Drive) the call needs, and a pinned id overrides that. Set it only after a 409 account-selection error, or in a background/scheduled run with no current member."
           },
           "calendarId": {
             "type": "string",
@@ -213,7 +215,8 @@
             "description": "The created Google Calendar event object."
           },
           "connection": {
-            "type": "string"
+            "type": "string",
+            "description": "Echoes the pinned connection when one was passed; absent when the server selected the account."
           }
         }
       }
@@ -230,7 +233,7 @@
         "properties": {
           "connection": {
             "type": "string",
-            "description": "Connection id of the Google account to use. Omit to use the default / first enabled account."
+            "description": "Connection id of a specific Google account. LEAVE UNSET in normal use: the server resolves the account per call, including which Google service (Calendar / Gmail / Drive) the call needs, and a pinned id overrides that. Set it only after a 409 account-selection error, or in a background/scheduled run with no current member."
           },
           "maxResults": {
             "type": "integer",
@@ -260,7 +263,8 @@
             "type": "integer"
           },
           "connection": {
-            "type": "string"
+            "type": "string",
+            "description": "Echoes the pinned connection when one was passed; absent when the server selected the account."
           }
         }
       }
@@ -280,7 +284,7 @@
         "properties": {
           "connection": {
             "type": "string",
-            "description": "Connection id of the Google account to use. Omit to use the default / first enabled account."
+            "description": "Connection id of a specific Google account. LEAVE UNSET in normal use: the server resolves the account per call, including which Google service (Calendar / Gmail / Drive) the call needs, and a pinned id overrides that. Set it only after a 409 account-selection error, or in a background/scheduled run with no current member."
           },
           "id": {
             "type": "string",
@@ -306,7 +310,8 @@
             "description": "The full Gmail message object including headers, body text, and HTML."
           },
           "connection": {
-            "type": "string"
+            "type": "string",
+            "description": "Echoes the pinned connection when one was passed; absent when the server selected the account."
           }
         }
       }
@@ -328,7 +333,7 @@
         "properties": {
           "connection": {
             "type": "string",
-            "description": "Connection id of the Google account to use. Omit to use the default / first enabled account."
+            "description": "Connection id of a specific Google account. LEAVE UNSET in normal use: the server resolves the account per call, including which Google service (Calendar / Gmail / Drive) the call needs, and a pinned id overrides that. Set it only after a 409 account-selection error, or in a background/scheduled run with no current member."
           },
           "to": {
             "type": "string",
@@ -360,7 +365,8 @@
             "description": "The created Gmail draft object."
           },
           "connection": {
-            "type": "string"
+            "type": "string",
+            "description": "Echoes the pinned connection when one was passed; absent when the server selected the account."
           }
         }
       }
@@ -377,7 +383,7 @@
         "properties": {
           "connection": {
             "type": "string",
-            "description": "Connection id of the Google account to use. Omit to use the default / first enabled account."
+            "description": "Connection id of a specific Google account. LEAVE UNSET in normal use: the server resolves the account per call, including which Google service (Calendar / Gmail / Drive) the call needs, and a pinned id overrides that. Set it only after a 409 account-selection error, or in a background/scheduled run with no current member."
           },
           "pageSize": {
             "type": "integer",
@@ -408,7 +414,8 @@
             "type": "string"
           },
           "connection": {
-            "type": "string"
+            "type": "string",
+            "description": "Echoes the pinned connection when one was passed; absent when the server selected the account."
           }
         }
       }
@@ -428,7 +435,7 @@
         "properties": {
           "connection": {
             "type": "string",
-            "description": "Connection id of the Google account to use. Omit to use the default / first enabled account."
+            "description": "Connection id of a specific Google account. LEAVE UNSET in normal use: the server resolves the account per call, including which Google service (Calendar / Gmail / Drive) the call needs, and a pinned id overrides that. Set it only after a 409 account-selection error, or in a background/scheduled run with no current member."
           },
           "fileId": {
             "type": "string",
@@ -444,7 +451,8 @@
             "description": "The Google Drive file metadata object."
           },
           "connection": {
-            "type": "string"
+            "type": "string",
+            "description": "Echoes the pinned connection when one was passed; absent when the server selected the account."
           }
         }
       }
@@ -464,7 +472,7 @@
         "properties": {
           "connection": {
             "type": "string",
-            "description": "Connection id of the Google account to use. Omit to use the default / first enabled account."
+            "description": "Connection id of a specific Google account. LEAVE UNSET in normal use: the server resolves the account per call, including which Google service (Calendar / Gmail / Drive) the call needs, and a pinned id overrides that. Set it only after a 409 account-selection error, or in a background/scheduled run with no current member."
           },
           "fileId": {
             "type": "string",
