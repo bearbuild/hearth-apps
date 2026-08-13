@@ -16,7 +16,7 @@
     ],
     "integrations": [
       {
-        "id": "google",
+        "id": "google-composio",
         "account": "per-member",
         "scopes": [
           "https://www.googleapis.com/auth/calendar.readonly",
