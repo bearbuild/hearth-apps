@@ -18,46 +18,59 @@ declare const capabilities: {
   };
 };
 
-const GROUPS = [
+// Google via Composio connects PER SERVICE: Calendar, Gmail, and Drive are
+// three separate connections, even for the same person. Each service's consent
+// grants a fixed set of scopes, decided by the operator's Composio auth config
+// and not by anything we pass. So the unit of choice here is the SERVICE —
+// which is also the unit the host connects: one consent pass links one of them.
+//
+// Finer-grained checkboxes (read vs. write, read-mail vs. draft-mail) would be
+// theatre: unchecking "read email" cannot stop a Gmail connection from
+// carrying gmail.readonly. What actually bounds this app is the scope list it
+// DECLARES in playground.json, which the host enforces as a ceiling.
+const SERVICES = [
   {
-    id: "calendar-read",
-    label: "Read calendar events",
-    description: "List and view upcoming calendar events.",
-    scope: "https://www.googleapis.com/auth/calendar.readonly",
+    id: "calendar",
+    label: "Google Calendar",
+    description: "Read upcoming events and create new ones.",
+    scopes: [
+      "https://www.googleapis.com/auth/calendar.readonly",
+      "https://www.googleapis.com/auth/calendar.events",
+    ],
   },
   {
-    id: "calendar-write",
-    label: "Create calendar events",
-    description: "Add new events to your calendar.",
-    scope: "https://www.googleapis.com/auth/calendar.events",
-  },
-  {
-    id: "gmail-read",
-    label: "Read emails",
-    description: "List and read Gmail messages.",
-    scope: "https://www.googleapis.com/auth/gmail.readonly",
+    id: "gmail",
+    label: "Gmail",
+    description:
+      "Read messages and compose drafts. Google grants these together — a connection that can draft can also read.",
+    scopes: [
+      "https://www.googleapis.com/auth/gmail.readonly",
+      "https://www.googleapis.com/auth/gmail.compose",
+    ],
     warning:
-      "Emails can contain hidden instructions from untrusted senders. When the agent can read your inbox, a crafted message could attempt prompt injection — tricking the agent into following attacker instructions — or expose sensitive details like password resets and verification codes. Consider whether you need this before enabling.",
+      "Emails can contain hidden instructions from untrusted senders. When the agent can read your inbox, a crafted message could attempt prompt injection — tricking the agent into following attacker instructions — or expose sensitive details like password resets and verification codes. Connecting Gmail grants reading and drafting together; there is no draft-only option. Consider whether you need this before enabling.",
   },
   {
-    id: "gmail-drafts",
-    label: "Compose email drafts",
-    description: "Create unsent Gmail drafts. Note: Google's compose scope is required for drafts and also allows sending.",
-    scope: "https://www.googleapis.com/auth/gmail.compose",
-  },
-  {
-    id: "drive-read",
-    label: "Read Google Drive files",
-    description: "List, search, and download files from your Google Drive.",
-    scope: "https://www.googleapis.com/auth/drive.readonly",
+    id: "drive",
+    label: "Google Drive",
+    description: "List, search, and download files. Read-only.",
+    scopes: ["https://www.googleapis.com/auth/drive.readonly"],
   },
 ];
 
-// Groups enabled by default when opening the connect form.
-// Email reading (gmail-read) is OFF by default because inbox content
-// comes from untrusted senders and can carry prompt-injection or
-// credential-leakage attacks. Users must opt in explicitly.
-const DEFAULT_GROUP_IDS = GROUPS.filter((g) => g.id !== "gmail-read").map((g) => g.id);
+// Services enabled by default when opening the connect form. Gmail is OFF:
+// inbox content comes from untrusted senders and can carry prompt-injection or
+// credential-leakage attacks, so it stays an explicit opt-in.
+const DEFAULT_SERVICE_IDS = SERVICES.filter((s) => s.id !== "gmail").map((s) => s.id);
+
+type Account = {
+  id: string;
+  label: string;
+  connectedBy: string | { name?: string; email?: string };
+  scopes: string[];
+  isDefault: boolean;
+  live: boolean;
+};
 
 function formatConnectedBy(
   connectedBy: string | { name?: string; email?: string }
@@ -67,18 +80,34 @@ function formatConnectedBy(
     : connectedBy?.name || connectedBy?.email || "Unknown";
 }
 
-function groupsFromScopes(scopes: string[]) {
+// Which service a connection serves. Rows carry their own service's scopes
+// only, so the scope list identifies it.
+function servicesFromScopes(scopes: string[]) {
   const set = new Set(scopes);
-  return GROUPS.filter((g) => set.has(g.scope));
+  return SERVICES.filter((s) => s.scopes.every((scope) => set.has(scope)));
+}
+
+// One Google account is up to three connections (one per service), all sharing
+// the account email as their label — so group by label or the same person
+// renders three times.
+function groupByAccount(accounts: Account[]) {
+  const groups = new Map<string, { label: string; rows: Account[] }>();
+  for (const a of accounts) {
+    const key = a.label || a.id;
+    const group = groups.get(key) ?? { label: a.label || "Unknown account", rows: [] };
+    group.rows.push(a);
+    groups.set(key, group);
+  }
+  return [...groups.values()];
 }
 
 function App() {
-  const [accounts, setAccounts] = useState<any[]>([]);
+  const [accounts, setAccounts] = useState<Account[]>([]);
   const [status, setStatus] = useState<string>("");
   const [loading, setLoading] = useState(false);
   const [showAddForm, setShowAddForm] = useState(false);
-  const [selectedGroups, setSelectedGroups] = useState<Set<string>>(
-    () => new Set(DEFAULT_GROUP_IDS)
+  const [selectedServices, setSelectedServices] = useState<Set<string>>(
+    () => new Set(DEFAULT_SERVICE_IDS)
   );
 
   async function loadAccounts() {
@@ -96,39 +125,60 @@ function App() {
     loadAccounts();
   }, []);
 
-  function toggleGroup(groupId: string) {
-    setSelectedGroups((prev) => {
+  function toggleService(serviceId: string) {
+    setSelectedServices((prev) => {
       const next = new Set(prev);
-      if (next.has(groupId)) next.delete(groupId);
-      else next.add(groupId);
+      if (next.has(serviceId)) next.delete(serviceId);
+      else next.add(serviceId);
       return next;
     });
   }
 
+  // One consent pass links ONE service, so connecting Calendar + Drive means
+  // two passes. We drive them here rather than leaving the user to guess why
+  // only part of what they checked ended up connected. Each pass requests just
+  // that service's scopes, which is what makes the host pick it.
   async function connectAccount() {
-    const scopes = GROUPS.filter((g) => selectedGroups.has(g.id)).map((g) => g.scope);
-    if (scopes.length === 0) {
-      setStatus("Select at least one capability to connect.");
+    const chosen = SERVICES.filter((s) => selectedServices.has(s.id));
+    if (chosen.length === 0) {
+      setStatus("Select at least one service to connect.");
       return;
     }
     setLoading(true);
-    setStatus("Opening Google consent…");
+    const connected: string[] = [];
     try {
-      const linked = await capabilities.integrations.connect("google-composio", { scopes });
-      if (!linked) {
-        setStatus("Connection cancelled.");
-      } else {
+      for (const service of chosen) {
+        setStatus(`Opening Google consent for ${service.label}…`);
+        const linked = await capabilities.integrations.connect("google-composio", {
+          scopes: service.scopes,
+        });
+        if (!linked) {
+          setStatus(
+            connected.length > 0
+              ? `Connected ${connected.join(", ")}. Cancelled at ${service.label}.`
+              : "Connection cancelled."
+          );
+          return;
+        }
+        connected.push(`${service.label} (${linked.label})`);
         await loadAccounts();
-        setStatus(`Connected ${linked.label}.`);
-        setShowAddForm(false);
-        setSelectedGroups(new Set(DEFAULT_GROUP_IDS));
       }
+      setStatus(`Connected ${connected.join(", ")}.`);
+      setShowAddForm(false);
+      setSelectedServices(new Set(DEFAULT_SERVICE_IDS));
     } catch (err: any) {
-      setStatus(`Error: ${err instanceof Error ? err.message : String(err)}`);
+      const detail = err instanceof Error ? err.message : String(err);
+      setStatus(
+        connected.length > 0
+          ? `Connected ${connected.join(", ")}, then failed: ${detail}`
+          : `Error: ${detail}`
+      );
     } finally {
       setLoading(false);
     }
   }
+
+  const groups = groupByAccount(accounts);
 
   return (
     <div className="p-6 max-w-2xl mx-auto">
@@ -146,36 +196,45 @@ function App() {
       `}</style>
       <h1 className="text-xl font-semibold mb-2">Google Workspace</h1>
       <p className="text-muted-foreground mb-6">
-        Connect Google accounts and choose which capabilities the agent can use for each. To change an account's capabilities, disconnect it from Google and reconnect with the desired scopes.
+        Connect Google accounts and choose which services the agent can use. Calendar, Gmail, and Drive connect separately, so each one you pick opens its own Google consent step. To remove a service, disconnect it in Settings → Integrations.
       </p>
 
-      {/* Connected accounts — read-only summary */}
-      {accounts.length > 0 && (
+      {/* Connected accounts — read-only summary, one card per Google account */}
+      {groups.length > 0 && (
         <div className="space-y-4 mb-6">
           <h2 className="text-sm font-semibold uppercase text-muted-foreground">Connected accounts</h2>
-          {accounts.map((a) => {
-            const enabled = groupsFromScopes(a.scopes);
+          {groups.map((group) => {
+            const linked = SERVICES.filter((s) =>
+              group.rows.some((row) => servicesFromScopes(row.scopes).some((rs) => rs.id === s.id))
+            );
+            const connectedBy = formatConnectedBy(group.rows[0].connectedBy);
+            const isDefault = group.rows.some((row) => row.isDefault);
             return (
-              <div key={a.id} className="border rounded-md p-4">
-                <div className="font-medium">{a.label}</div>
+              <div key={group.label} className="border rounded-md p-4">
+                <div className="font-medium">{group.label}</div>
                 <div className="text-sm text-muted-foreground mb-3">
-                  connected by {formatConnectedBy(a.connectedBy)}
-                  {a.isDefault && " · default"}
+                  connected by {connectedBy}
+                  {isDefault && " · default"}
                 </div>
                 <div className="flex flex-wrap gap-2">
-                  {enabled.length > 0 ? (
-                    enabled.map((g) => (
+                  {linked.length > 0 ? (
+                    linked.map((s) => (
                       <span
-                        key={g.id}
+                        key={s.id}
                         className="inline-block text-xs px-2 py-1 rounded-full border bg-accent"
                       >
-                        {g.label}
+                        {s.label}
                       </span>
                     ))
                   ) : (
-                    <span className="text-sm text-muted-foreground">No capabilities enabled.</span>
+                    <span className="text-sm text-muted-foreground">No services connected.</span>
                   )}
                 </div>
+                {linked.length < SERVICES.length && (
+                  <div className="text-xs text-muted-foreground mt-3">
+                    Not connected: {SERVICES.filter((s) => !linked.includes(s)).map((s) => s.label).join(", ")}
+                  </div>
+                )}
               </div>
             );
           })}
@@ -189,37 +248,37 @@ function App() {
           disabled={loading}
           className="px-4 py-2 border rounded-md hover:bg-accent disabled:opacity-50"
         >
-          {accounts.length === 0 ? "Connect a Google account" : "Add another Google account"}
+          {accounts.length === 0 ? "Connect a Google account" : "Connect more services or another account"}
         </button>
       ) : (
         <div className="border rounded-md p-4 mb-6">
-          <h2 className="font-medium mb-2">Connect a Google account</h2>
+          <h2 className="font-medium mb-2">Connect Google services</h2>
           <p className="text-sm text-muted-foreground mb-4">
-            Choose which capabilities to request. You can reconnect later with different scopes.
+            Each service you check opens its own Google consent step, one after the other.
           </p>
           <div className="space-y-2 mb-4">
-            {GROUPS.map((g) => (
+            {SERVICES.map((s) => (
               <label
-                key={g.id}
+                key={s.id}
                 className="flex items-start gap-3 cursor-pointer hover:bg-accent p-2 rounded-md"
               >
                 <input
                   type="checkbox"
-                  checked={selectedGroups.has(g.id)}
-                  onChange={() => toggleGroup(g.id)}
+                  checked={selectedServices.has(s.id)}
+                  onChange={() => toggleService(s.id)}
                   className="mt-1"
                 />
                 <div>
                   <div className="font-medium text-sm flex items-center gap-1.5">
-                    {g.label}
-                    {g.warning && (
+                    {s.label}
+                    {s.warning && (
                       <span className="gw-info" role="img" aria-label="Security note">
                         <span aria-hidden="true">ⓘ</span>
-                        <span className="gw-info-tip">{g.warning}</span>
+                        <span className="gw-info-tip">{s.warning}</span>
                       </span>
                     )}
                   </div>
-                  <div className="text-xs text-muted-foreground">{g.description}</div>
+                  <div className="text-xs text-muted-foreground">{s.description}</div>
                 </div>
               </label>
             ))}
@@ -235,7 +294,7 @@ function App() {
             <button
               onClick={() => {
                 setShowAddForm(false);
-                setSelectedGroups(new Set(DEFAULT_GROUP_IDS));
+                setSelectedServices(new Set(DEFAULT_SERVICE_IDS));
                 setStatus("");
               }}
               disabled={loading}

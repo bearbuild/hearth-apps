@@ -14,38 +14,20 @@ declare const capabilities: {
   };
 };
 
-const GROUPS = [
-  {
-    id: "calendar-read",
-    tools: ["list_calendar_events", "get_calendar_event"],
-    scope: "https://www.googleapis.com/auth/calendar.readonly",
-  },
-  {
-    id: "calendar-write",
-    tools: ["create_calendar_event"],
-    scope: "https://www.googleapis.com/auth/calendar.events",
-  },
-  {
-    id: "gmail-read",
-    tools: ["list_emails", "get_email"],
-    scope: "https://www.googleapis.com/auth/gmail.readonly",
-  },
-  {
-    id: "gmail-drafts",
-    tools: ["compose_draft"],
-    scope: "https://www.googleapis.com/auth/gmail.compose",
-  },
-  {
-    id: "drive-read",
-    tools: ["list_drive_files", "stat_drive_file", "read_drive_file"],
-    scope: "https://www.googleapis.com/auth/drive.readonly",
-  },
-];
-
-const TOOL_TO_GROUP: Record<string, string> = {};
-for (const g of GROUPS) {
-  for (const t of g.tools) TOOL_TO_GROUP[t] = g.id;
-}
+// Google via Composio connects PER SERVICE: Calendar, Gmail, and Drive are
+// three separate connections, even for the same person.  We deliberately do
+// NOT resolve a connection ourselves:
+//
+//  - Account selection is the host's job, and for this provider it keys on the
+//    SERVICE the target URL addresses.  Pinning `connection` overrides that, so
+//    a Gmail call could run as the Calendar account and fail upstream.
+//  - When no account serves the target's service, the host answers 404
+//    `not_connected`, which is what raises the in-app "connect an account"
+//    prompt.  An app that pre-checks scopes and throws its own error never
+//    makes that call, so the missing service can never get connected.
+//
+// A caller may still pin an account explicitly (a background turn with no
+// current member, or after a 409); we pass that through untouched.
 
 function formatConnectedBy(
   connectedBy: string | { name?: string; email?: string }
@@ -53,67 +35,6 @@ function formatConnectedBy(
   return typeof connectedBy === "string"
     ? connectedBy
     : connectedBy?.name || connectedBy?.email || "Unknown";
-}
-
-async function listGoogleAccounts() {
-  try {
-    return await capabilities.integrations.list("google-composio");
-  } catch {
-    return [];
-  }
-}
-
-// Pick the connection id to use for a tool.  If the caller passed a specific
-// connection, verify it has the required scope granted.  Otherwise pick the
-// default account, or the first account that has the tool's scope granted.
-async function resolveConnection(
-  toolName: string,
-  requestedConnection?: string
-): Promise<string> {
-  const groupId = TOOL_TO_GROUP[toolName];
-  if (!groupId) throw new Error(`Unknown tool: ${toolName}`);
-
-  const group = GROUPS.find((g) => g.id === groupId)!;
-  const requiredScope = group.scope;
-
-  const accounts = await listGoogleAccounts();
-
-  if (accounts.length === 0) {
-    throw new Error(
-      "No Google account is connected. Open the Google Workspace app to connect your account."
-    );
-  }
-
-  if (requestedConnection) {
-    const account = accounts.find((a) => a.id === requestedConnection);
-    if (!account) {
-      throw new Error(
-        `Account ${requestedConnection} is not connected.`
-      );
-    }
-    if (!account.scopes.includes(requiredScope)) {
-      throw new Error(
-        `Tool ${toolName} requires scope ${requiredScope} which is not granted for account ${requestedConnection}. ` +
-          `Open the Google Workspace app to reconnect that account with the needed capability.`
-      );
-    }
-    return requestedConnection;
-  }
-
-  // Prefer the default account if it has the required scope.
-  const defaultAccount = accounts.find(
-    (a) => a.isDefault && a.scopes.includes(requiredScope)
-  );
-  if (defaultAccount) return defaultAccount.id;
-
-  // Fall back to any account with the required scope.
-  const anyAccount = accounts.find((a) => a.scopes.includes(requiredScope));
-  if (anyAccount) return anyAccount.id;
-
-  throw new Error(
-    `Tool ${toolName} requires scope ${requiredScope} which is not granted for any connected Google account. ` +
-      `Open the Google Workspace app to connect an account with the needed capability.`
-  );
 }
 
 // Handle a 409 "can't choose an account" response.  With per-member
@@ -153,12 +74,39 @@ async function handle409(res: Response): Promise<never> {
   );
 }
 
+// A 404 carrying `{ integration, reason }` is the host saying it could not
+// resolve an account for this call's service — NOT a Google "no such thing".
+// Raising it as itself matters: the same response is what opens the in-app
+// connect prompt, so the user's next click fixes it.
+async function handleUnresolved(res: Response): Promise<void> {
+  let body: any = {};
+  try {
+    body = await res.clone().json();
+  } catch {
+    return; // a real Google 404
+  }
+  if (body?.integration !== "google-composio" || !body?.reason) return;
+  if (body.reason === "not_connected_for_member") {
+    throw new Error(
+      "Your own Google account isn't connected for this service. " +
+        "This app uses per-member permissions, so a housemate's connection is " +
+        "not substituted. Use the connect prompt on the app's page to link yours."
+    );
+  }
+  throw new Error(
+    "No Google account is connected for the service this call needs " +
+      "(Calendar, Gmail, and Drive connect separately). " +
+      "Use the connect prompt on the app's page to link it."
+  );
+}
+
 async function googleFetch(
   url: string,
   init?: RequestInit & { connection?: string }
 ): Promise<any> {
   const res = await capabilities.integrations.fetch("google-composio", url, init);
   if (res.status === 409) await handle409(res);
+  if (res.status === 404) await handleUnresolved(res);
   if (!res.ok) {
     const body = await res.text().catch(() => "");
     throw new Error(`Google API error ${res.status}: ${body}`);
@@ -174,6 +122,7 @@ async function googleFetchRaw(
 ): Promise<Response> {
   const res = await capabilities.integrations.fetch("google-composio", url, init);
   if (res.status === 409) await handle409(res);
+  if (res.status === 404) await handleUnresolved(res);
   if (!res.ok) {
     const body = await res.text().catch(() => "");
     throw new Error(`Google API error ${res.status}: ${body}`);
@@ -248,7 +197,8 @@ export async function list_calendar_events(input: {
   timeMax?: string;
   q?: string;
 }) {
-  const connection = await resolveConnection("list_calendar_events", input.connection);
+  // Undefined unless the caller pinned one — the host then selects by service.
+  const connection = input.connection;
   const calendarId = input.calendarId || "primary";
   const params = new URLSearchParams();
   params.set("maxResults", String(input.maxResults || 10));
@@ -270,7 +220,8 @@ export async function get_calendar_event(input: {
   calendarId?: string;
   eventId: string;
 }) {
-  const connection = await resolveConnection("get_calendar_event", input.connection);
+  // Undefined unless the caller pinned one — the host then selects by service.
+  const connection = input.connection;
   const calendarId = input.calendarId || "primary";
   const data = await googleFetch(
     `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events/${encodeURIComponent(input.eventId)}`,
@@ -289,7 +240,8 @@ export async function create_calendar_event(input: {
   end: { dateTime?: string; date?: string; timeZone?: string };
   attendees?: { email: string }[];
 }) {
-  const connection = await resolveConnection("create_calendar_event", input.connection);
+  // Undefined unless the caller pinned one — the host then selects by service.
+  const connection = input.connection;
   const calendarId = input.calendarId || "primary";
   // Google accepts either { dateTime, timeZone } for a timed event or
   // { date } for an all-day event—not both. Tool callers may supply empty
@@ -329,7 +281,8 @@ export async function list_emails(input: {
   q?: string;
   labelIds?: string[];
 }) {
-  const connection = await resolveConnection("list_emails", input.connection);
+  // Undefined unless the caller pinned one — the host then selects by service.
+  const connection = input.connection;
   const params = new URLSearchParams();
   params.set("maxResults", String(input.maxResults || 10));
   if (input.q) params.set("q", input.q);
@@ -371,7 +324,8 @@ export async function get_email(input: {
   id: string;
   format?: "minimal" | "full" | "raw" | "metadata";
 }) {
-  const connection = await resolveConnection("get_email", input.connection);
+  // Undefined unless the caller pinned one — the host then selects by service.
+  const connection = input.connection;
   const format = input.format || "full";
   const data = await googleFetch(
     `https://www.googleapis.com/gmail/v1/users/me/messages/${input.id}?format=${format}`,
@@ -402,7 +356,8 @@ export async function compose_draft(input: {
   cc?: string;
   bcc?: string;
 }) {
-  const connection = await resolveConnection("compose_draft", input.connection);
+  // Undefined unless the caller pinned one — the host then selects by service.
+  const connection = input.connection;
   const lines = [
     `To: ${input.to}`,
     input.cc ? `Cc: ${input.cc}` : "",
@@ -446,7 +401,8 @@ export async function list_drive_files(input: {
   orderBy?: string;
   pageToken?: string;
 }) {
-  const connection = await resolveConnection("list_drive_files", input.connection);
+  // Undefined unless the caller pinned one — the host then selects by service.
+  const connection = input.connection;
   const params = new URLSearchParams();
   params.set("pageSize", String(Math.min(input.pageSize || 10, 100)));
   if (input.q) params.set("q", input.q);
@@ -462,7 +418,8 @@ export async function list_drive_files(input: {
 }
 
 export async function stat_drive_file(input: { connection?: string; fileId: string }) {
-  const connection = await resolveConnection("stat_drive_file", input.connection);
+  // Undefined unless the caller pinned one — the host then selects by service.
+  const connection = input.connection;
   const params = new URLSearchParams();
   params.set("fields", DRIVE_FILE_FIELDS);
 
@@ -478,7 +435,8 @@ export async function read_drive_file(input: {
   fileId: string;
   mimeType?: string;
 }) {
-  const connection = await resolveConnection("read_drive_file", input.connection);
+  // Undefined unless the caller pinned one — the host then selects by service.
+  const connection = input.connection;
   const fileId = input.fileId;
 
   const meta = await googleFetch(
