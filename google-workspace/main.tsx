@@ -83,7 +83,7 @@ function App() {
 
   async function loadAccounts() {
     try {
-      const list = await capabilities.integrations.list("google");
+      const list = await capabilities.integrations.list("google-composio");
       setAccounts(list);
       return list;
     } catch {
@@ -114,7 +114,7 @@ function App() {
     setLoading(true);
     setStatus("Opening Google consent…");
     try {
-      const linked = await capabilities.integrations.connect("google", { scopes });
+      const linked = await capabilities.integrations.connect("google-composio", { scopes });
       if (!linked) {
         setStatus("Connection cancelled.");
       } else {
