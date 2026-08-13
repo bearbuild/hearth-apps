@@ -57,7 +57,7 @@ function formatConnectedBy(
 
 async function listGoogleAccounts() {
   try {
-    return await capabilities.integrations.list("google");
+    return await capabilities.integrations.list("google-composio");
   } catch {
     return [];
   }
@@ -157,7 +157,7 @@ async function googleFetch(
   url: string,
   init?: RequestInit & { connection?: string }
 ): Promise<any> {
-  const res = await capabilities.integrations.fetch("google", url, init);
+  const res = await capabilities.integrations.fetch("google-composio", url, init);
   if (res.status === 409) await handle409(res);
   if (!res.ok) {
     const body = await res.text().catch(() => "");
@@ -172,7 +172,7 @@ async function googleFetchRaw(
   url: string,
   init?: RequestInit & { connection?: string }
 ): Promise<Response> {
-  const res = await capabilities.integrations.fetch("google", url, init);
+  const res = await capabilities.integrations.fetch("google-composio", url, init);
   if (res.status === 409) await handle409(res);
   if (!res.ok) {
     const body = await res.text().catch(() => "");
