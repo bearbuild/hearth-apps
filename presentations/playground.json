@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "name": "@local/presentations",
   "displayName": "Presentations",
-  "description": "Create and present slide decks from markdown files using reveal.js.",
+  "description": "Create and present slide decks from markdown files using reveal.js in an isolated raw HTML page.",
   "icon": "presentation",
   "capabilities": {
     "fetch": ["https://esm.sh"],
@@ -16,10 +16,10 @@
         }
       ]
     },
-    "sandbox": ["allow-presentation"]
+    "sandbox": ["allow-presentation", "allow-modals"]
   },
   "entrypoints": {
-    "main": { "runtime": "page", "module": "main.tsx" }
+    "main": { "runtime": "page", "module": "index.html" }
   },
   "skills": ["SKILL.md"]
 }

@@ -7,7 +7,7 @@ description: Create and present slide decks from markdown files using reveal.js.
 
 ## What it does
 
-The Presentations app renders markdown files as slide presentations using [reveal.js](https://revealjs.com/). Files live in the `/Presentations/` folder at the workspace root.
+The Presentations app renders markdown files as slide presentations using [reveal.js](https://revealjs.com/). It uses a self-contained raw HTML page so reveal.js's document-wide layout, overview, and print styles are not mixed with Hearth's host stylesheet. Files live in the `/Presentations/` folder at the workspace root.
 
 ## File format
 
@@ -94,6 +94,12 @@ Revenue up 40%
 | F | Fullscreen |
 | N / S | Toggle in-app speaker notes drawer |
 | O / Esc | Slide overview grid |
+
+## Exporting to PDF
+
+Click **📄 PDF** in the presentation toolbar. The app initializes the deck directly in reveal.js's documented `print-pdf` view, waits for reveal.js to finish generating one printable page per slide, then calls the browser print dialog from the presentation iframe; choose **Save as PDF** as the destination.
+
+For best results, use landscape orientation, turn on background graphics, set margins to none, and turn **Headers and footers** off (the exact labels depend on the browser). Browser-generated headers and footers—such as the URL, date, and page number—cannot be removed by the app's CSS. The app hides its toolbar, speaker notes, and reveal.js slide numbers from the exported document.
 
 ## Creating a presentation
 
